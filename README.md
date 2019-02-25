@@ -1,2 +1,0 @@
-# hidesymbol
-import symbol hidding
