@@ -1,0 +1,8 @@
+#ignore libs&obj
+stub/libs/*
+stub/obj/*
+
+test/libs/*
+test/obj/*
+
+elf-tool/main
