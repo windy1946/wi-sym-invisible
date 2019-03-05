@@ -67,10 +67,15 @@ class Elf_parser {
 
         int get_mode(){return this->mode;}
         int get_type(){return this->type;}
+        uint64_t get_file_size(){return this->file_size;}
 
         uint8_t *m_mmap_program;
         
         bool update_file();
+
+        ~Elf_parser(){
+            //release mmap
+        }
     private:
         void load_memory_map();
         
@@ -96,7 +101,7 @@ class Elf_parser {
         bool set_dynsym(void* symbol_table, int len);
         bool set_strtab(void* symbol_name, int len);
         bool set_relo(void* relo_table, int len);
-
+        
         std::string m_program_path; 
         unsigned long file_size;
         int mode;

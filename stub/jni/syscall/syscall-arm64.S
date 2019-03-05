@@ -23,5 +23,5 @@ _syscall:
 
     ret
 
-.global SystemCallEnd
-SystemCallEnd:
+.global wi_symbol
+wi_symbol:

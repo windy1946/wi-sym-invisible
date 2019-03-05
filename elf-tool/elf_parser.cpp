@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
+#include <elf.h>
 #include "elf_relocate.h"
 
 using namespace elf_parser;
@@ -293,21 +294,21 @@ std::vector<relocation_t> Elf_parser::get_relocations() {
             if(sec.section_type != "SHT_RELA") 
                 continue;
 
-            auto total_relas = sec.section_size / sizeof(Elf64_Rela);
-            auto relas_data  = (Elf64_Rela*)(m_mmap_program + sec.section_offset);
+            auto total_relas = sec.section_size / sizeof(Elf32_Rela);
+            auto relas_data  = (Elf32_Rela*)(m_mmap_program + sec.section_offset);
 
             for (int i = 0; i < total_relas; ++i) {
                 relocation_t rel;
                 rel.relocation_offset = static_cast<std::intptr_t>(relas_data[i].r_offset);
                 rel.relocation_info   = static_cast<std::intptr_t>(relas_data[i].r_info);
                 rel.relocation_type   = \
-                    get_relocation_type(relas_data[i].r_info);
+                    get_relocation_type((uint64_t&)(relas_data[i].r_info));
                 
                 rel.relocation_symbol_value = \
-                    get_rel_symbol_value(relas_data[i].r_info, syms);
+                    get_rel_symbol_value((uint64_t&)(relas_data[i].r_info), syms);
                 
                 rel.relocation_symbol_name  = \
-                    get_rel_symbol_name(relas_data[i].r_info, syms);
+                    get_rel_symbol_name((uint64_t&)(relas_data[i].r_info), syms);
                 
                 rel.relocation_plt_address = plt_vma_address + (i + 1) * plt_entry_size;
                 rel.relocation_section_name = sec.section_name;
@@ -722,6 +723,11 @@ bool Elf_parser::remove_symbol(std::string symbol_name){
             
             elf_relocate relocate(this->m_mmap_program, this->mode);
             
+            if(!relocate.move_rela2end(symbol_name)){
+                LOGE("move rela to the end fail...");
+                return false;
+            }
+    
             //move symbol to the end and fix rela->r_info
             Elf64_Rela* cur_rela = (Elf64_Rela*)relocate.get_rela(symbol_name);
             if(cur_rela == NULL){
@@ -729,11 +735,11 @@ bool Elf_parser::remove_symbol(std::string symbol_name){
                 return false;
             }
             
-            if(!relocate.remove_rela(symbol_name)){
-                LOGE("remove rela fail...");
+            if(!relocate.remove_last_rela()){
+                LOGE("remove the last rela fail...");
                 return false;
             }
-
+            
             cur_rela->r_info = 0;
             if(!this->set_relo(cur_rela, sizeof(Elf64_Rela))){
                 LOGE("set relo fail...");
@@ -793,14 +799,19 @@ bool Elf_parser::remove_symbol(std::string symbol_name){
 
             elf_relocate relocate(this->m_mmap_program, this->mode);
 
+            if(!relocate.move_rela2end(symbol_name)){
+                LOGE("move rela to the end fail...");
+                return false;
+            }
+
             Elf32_Rela* cur_rela = (Elf32_Rela*)relocate.get_rela(symbol_name);
             if(cur_rela == NULL){
                 LOGE("can not find cur_rela:%s", symbol_name.c_str());
                 return false;
             }
 
-            if(!relocate.remove_rela(symbol_name)){
-                LOGE("remove rela fail");
+            if(!relocate.remove_last_rela()){
+                LOGE("remove the last rela fail...");
                 return false;
             }
             
@@ -865,8 +876,8 @@ int Elf_parser::find_magic(const char* magic, int magic_len){
 }
 
 bool Elf_parser::set_relo(void* relo_table, int len){
-    const char* magic="magicbeaa";
-    int index = this->find_magic(magic, strlen(magic));
+    unsigned char magic[4] = {0xe2, 0xbe, 0xef, 0xbe};
+    int index = this->find_magic((const char*)magic, sizeof(magic));
     //LOGD("%s : %d", magic, index);
     if(index < 0){
         LOGE("can not find %s", magic);
@@ -877,8 +888,8 @@ bool Elf_parser::set_relo(void* relo_table, int len){
 }
 
 bool Elf_parser::set_dynsym(void* symbol_table, int len){
-    const char* magic="magicbeab";
-    int index = this->find_magic(magic, strlen(magic));
+    unsigned char magic[4] = {0xe3, 0xbe, 0xef, 0xbe};
+    int index = this->find_magic((const char*)magic, sizeof(magic));
     //LOGD("%s : %d", magic, index);
     if(index < 0){
         LOGE("can not find %s", magic);
@@ -889,8 +900,8 @@ bool Elf_parser::set_dynsym(void* symbol_table, int len){
 }
 
 bool Elf_parser::set_strtab(void* symbol_name, int len){
-    const char* magic="magicbeac";
-    int index = this->find_magic(magic, strlen(magic));
+    unsigned char magic[4] = {0xe4, 0xbe, 0xef, 0xbe};
+    int index = this->find_magic((const char*)magic, sizeof(magic));
     //LOGD("%s : %d", magic, index);
     if(index < 0){
         LOGE("can not find %s", magic);
@@ -899,5 +910,3 @@ bool Elf_parser::set_strtab(void* symbol_name, int len){
     strncpy((char*)(this->m_mmap_program+index), (char*)symbol_name, len);
     return true;
 }
-
-

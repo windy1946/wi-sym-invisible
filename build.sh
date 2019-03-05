@@ -9,7 +9,12 @@
     make
 )
 
-./elf-tool/main stub/libs/arm64-v8a/libshellcode-relocate.so
+(
+    cd test/jni
+    ndk-build
+)
+
+./elf-tool/main test/libs/arm64-v8a/libtest.so stub/libs/arm64-v8a/libshellcode-relocate.so
 
 ret=$?
 
@@ -18,4 +23,6 @@ if [ $ret != 0 ]; then
     exit 1
 fi
 
-adb push stub/libs/arm64-v8a/libshellcode-relocate.so /data/local/tmp/
+adb push test/libs/arm64-v8a/libtest.so /data/local/tmp/
+
+adb push test/libs/arm64-v8a/main /data/local/tmp/

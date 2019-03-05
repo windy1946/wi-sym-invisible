@@ -14,8 +14,10 @@
 #include <fcntl.h>
 #include "elf_h.h"
 
-#include "log.h"
 #define PAGE_SIZE   4096
+
+#define LOGD 
+#define LOGE
 
 inline
 int _memcmp(const void* s1, const void* s2,size_t n) {

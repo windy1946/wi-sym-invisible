@@ -14,5 +14,5 @@ _syscall:
 	ldmfd   sp!, {r4, r5, r6, r7}
 	bx    	lr
  
-.global SystemCallEnd
-SystemCallEnd:
+.global wi_symbol
+wi_symbol:

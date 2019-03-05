@@ -49,15 +49,19 @@ void elf_relocate::init(){
                     plt_rela_count_ = (Elf64_Word)dyn->d_un.d_val / sizeof(Elf64_Rela);
                     this->plt_rela_sz_dyn = dyn;
                     break;
+                case DT_INIT:
+                    this->init_dyn = dyn;
+                    break;
                 default:
                     break;
             }
         }
+        this->last_dyn = dyn;
     }
 };
 
 bool elf_relocate::move_rela2end(std::string symbol_name){
-    LOGD("mode : %d", this->mode);
+    //LOGD("mode : %d", this->mode);
     if(this->mode == 64){
         Elf64_Rela* r = (Elf64_Rela*)this->rela_;
         Elf64_Sym* s = (Elf64_Sym*)this->symtab_;
@@ -101,7 +105,7 @@ bool elf_relocate::move_rela2end(std::string symbol_name){
         Elf32_Rela* r = (Elf32_Rela*)this->rela_;
         Elf32_Sym* s = (Elf32_Sym*)this->symtab_;
         for(size_t i=0; i<rela_count_; i++){
-            Elf32_Xword sym_index = ELF32_R_SYM(r[i].r_info);
+            Elf32_Word sym_index = ELF32_R_SYM(r[i].r_info);
             const char* sym_name = this->strtab_ + s[sym_index].st_name;
             if(std::string(sym_name) == symbol_name){
                 Elf32_Rela* cur_rela = (Elf32_Rela*)&r[i];
@@ -115,7 +119,7 @@ bool elf_relocate::move_rela2end(std::string symbol_name){
         }
         r = (Elf32_Rela*)this->plt_rela_;
         for(size_t i=0; i<plt_rela_count_; i++){
-            Elf32_Xword sym_index = ELF32_R_SYM(r[i].r_info);
+            Elf32_Word sym_index = ELF32_R_SYM(r[i].r_info);
             const char* sym_name = this->strtab_ + s[sym_index].st_name;
             if(std::string(sym_name) == symbol_name){
                 Elf32_Rela* cur_rela = (Elf32_Rela*)&r[i];
@@ -160,7 +164,7 @@ void* elf_relocate::get_rela(std::string symbol_name)
         Elf32_Rela* r = (Elf32_Rela*)this->rela_;
         Elf32_Sym* s = (Elf32_Sym*)this->symtab_;
         for(size_t i=0; i<rela_count_; i++){
-            Elf32_Xword sym_index = ELF32_R_SYM(r[i].r_info);
+            Elf32_Word sym_index = ELF32_R_SYM(r[i].r_info);
             const char* sym_name = this->strtab_ + s[sym_index].st_name;
             if(std::string(sym_name) == symbol_name){
                 return &r[i];
@@ -168,7 +172,7 @@ void* elf_relocate::get_rela(std::string symbol_name)
         }
         r = (Elf32_Rela*)this->plt_rela_;
         for(size_t i=0; i<plt_rela_count_; i++){
-            Elf32_Xword sym_index = ELF32_R_SYM(r[i].r_info);
+            Elf32_Word sym_index = ELF32_R_SYM(r[i].r_info);
             const char* sym_name = this->strtab_ + s[sym_index].st_name;
             if(std::string(sym_name) == symbol_name){
                 return &r[i];
@@ -215,4 +219,50 @@ bool elf_relocate::remove_rela(std::string symbol_name){
     }
 
     return true;
+}
+
+
+
+uint64_t elf_relocate::get_init_offset(){
+    if(this->init_dyn == NULL ){
+        return 0;
+    }
+    if(this->mode == 32){
+        Elf32_Dyn* dyn = (Elf32_Dyn*)(this->init_dyn);
+        (uint64_t)(dyn->d_un.d_ptr);
+    }else if(this->mode == 64){
+        Elf64_Dyn* dyn = (Elf64_Dyn*)(this->init_dyn);
+        (uint64_t)(dyn->d_un.d_ptr);
+    }
+    return 0;
+}
+
+
+bool elf_relocate::set_init_offset(uint64_t init_offset){
+    if(this->init_dyn == NULL){
+        //no init
+        if(this->mode == 32){
+            Elf32_Dyn* dyn = (Elf32_Dyn*)this->last_dyn;
+            dyn->d_tag = DT_INIT;
+            dyn->d_un.d_ptr = init_offset;
+            return true;
+        }else if(this->mode == 64){
+            Elf64_Dyn* dyn = (Elf64_Dyn*)this->last_dyn;
+            dyn->d_tag = DT_INIT;
+            dyn->d_un.d_ptr = init_offset;
+            return true;
+        }
+    }else{
+        //has init
+        if(this->mode == 32){
+            Elf32_Dyn* dyn = (Elf32_Dyn*)this->init_dyn;
+            dyn->d_un.d_ptr = init_offset;
+            return true;
+        }else if(this->mode == 64){
+            Elf64_Dyn* dyn = (Elf64_Dyn*)this->init_dyn;
+            dyn->d_un.d_ptr = init_offset;
+            return true;
+        }
+    }
+    return false;
 }

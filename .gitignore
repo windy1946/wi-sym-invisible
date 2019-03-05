@@ -6,3 +6,6 @@ test/libs/*
 test/obj/*
 
 elf-tool/main
+
+.vscode/*
+

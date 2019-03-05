@@ -1,7 +1,8 @@
 #include <iostream>
-#include "elf_parser.h"
+#include "elf_patch.h"
 #include <stdio.h>
 #include <unistd.h>
+#include "log.h"
 
 void print_symbols(std::vector<elf_parser::symbol_t> &symbols) {
     std::cout <<"print symbols : " <<std::endl;
@@ -20,30 +21,16 @@ void print_sections(std::vector<elf_parser::section_t> &sections){
 
 
 int main(int argc, char* argv[]){
-    std::string filepath(argv[1]);
-    elf_parser::Elf_parser elf(filepath);
-    std::vector<elf_parser::symbol_t> symbols = elf.get_symbols();
-    unsigned long offset = elf.getSymbolOffset("read_elf");
+    std::string targetso(argv[1]);
+    std::string stubso(argv[2]);
 
-    unsigned char orig_data[4] = {0xbe, 0xef, 0xbe, 0xef};
+    LOGI("data init");
+
+    elf_patch elf(targetso, stubso);
     
-    if(elf.remove_symbol("getchar")){
-        LOGI("remove symbol ok");
-    }else{
-        LOGE("remove symbol fail...");
-        return -1;
-    }
-
-    if(elf.replace_data(orig_data, sizeof(orig_data), offset)){
-        LOGI("replace magic ok");
-    }else{
-        LOGE("replace magic fail");
-        return -1;
-    }
-
-    if(elf.update_file()){
-        LOGI("update file ok");
-    }else{
+    LOGI("stub patch begin");
+    
+    if(!elf.patch_stub()){
         return -1;
     }
     
