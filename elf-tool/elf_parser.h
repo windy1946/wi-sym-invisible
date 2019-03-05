@@ -53,6 +53,11 @@ class Elf_parser {
     public:
         Elf_parser (std::string &program_path): m_program_path{program_path} {   
             load_memory_map();
+            this->dynsym_cur_index = 0;
+            this->strtab_cur_index = 0;
+            this->relo_cur_index = 0;
+            this->r_info_cur_index = 0;
+            this->st_name_cur_index = 0;
         }
         std::vector<section_t> get_sections();
         std::vector<segment_t> get_segments();
@@ -64,7 +69,7 @@ class Elf_parser {
         
         bool replace_data(unsigned char* orig_data, size_t length, unsigned long src_data);
         bool remove_symbol(std::string symbol_name);
-
+        
         int get_mode(){return this->mode;}
         int get_type(){return this->type;}
         uint64_t get_file_size(){return this->file_size;}
@@ -99,9 +104,15 @@ class Elf_parser {
 
         int find_magic(const char* magic, int magic_len);
         bool set_dynsym(void* symbol_table, int len);
+        uint64_t dynsym_cur_index;
         bool set_strtab(void* symbol_name, int len);
+        uint64_t strtab_cur_index;
         bool set_relo(void* relo_table, int len);
+        uint64_t relo_cur_index;
         
+        uint64_t r_info_cur_index;
+        uint64_t st_name_cur_index;
+
         std::string m_program_path; 
         unsigned long file_size;
         int mode;

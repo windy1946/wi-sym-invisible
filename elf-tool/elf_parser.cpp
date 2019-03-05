@@ -740,23 +740,25 @@ bool Elf_parser::remove_symbol(std::string symbol_name){
                 return false;
             }
             
-            cur_rela->r_info = 0;
+            cur_rela->r_info = this->r_info_cur_index;
             if(!this->set_relo(cur_rela, sizeof(Elf64_Rela))){
                 LOGE("set relo fail...");
                 return false;
             }
             
-            cur_symbol->st_name = 0;
+            cur_symbol->st_name = this->st_name_cur_index;
             if(!this->set_dynsym(cur_symbol, sizeof(Elf64_Sym))){
                 LOGE("set dynsym fail...");
                 return false;
             }
-            
+            this->r_info_cur_index++;
+
             if(!this->set_strtab((void*)symbol_name.c_str(), symbol_name.length()+1)){
                 LOGE("set strtab fail...");
                 return false;
             }
-            
+            this->st_name_cur_index += symbol_name.length()+1;
+
             memset((void*)cur_symbol, 0, sizeof(Elf64_Sym));
             
             return true;
@@ -815,22 +817,24 @@ bool Elf_parser::remove_symbol(std::string symbol_name){
                 return false;
             }
             
-            cur_rela->r_info = 0;
+            cur_rela->r_info = this->r_info_cur_index;
             if(!this->set_relo(cur_rela, sizeof(Elf32_Rela))){
                 LOGE("set relo fail...");
                 return false;
             }
             
-            cur_symbol->st_name = 0;
+            cur_symbol->st_name = this->st_name_cur_index;
             if(!this->set_dynsym(cur_symbol, sizeof(Elf32_Sym))){
                 LOGE("set dynsym fail...");
                 return false;
             }
-            
+            cur_rela->r_info++;
+
             if(!this->set_strtab((void*)symbol_name.c_str(), symbol_name.length()+1)){
                 LOGE("set strtab fail");
                 return false;
             }
+            this->st_name_cur_index += symbol_name.length()+1;
 
             memset((void*)cur_symbol, 0, sizeof(Elf32_Sym));
             
@@ -879,11 +883,17 @@ bool Elf_parser::set_relo(void* relo_table, int len){
     unsigned char magic[4] = {0xe2, 0xbe, 0xef, 0xbe};
     int index = this->find_magic((const char*)magic, sizeof(magic));
     //LOGD("%s : %d", magic, index);
-    if(index < 0){
+    if(index > 0){
+        this->relo_cur_index = index;
+    }
+    if(this->relo_cur_index <= 0){
         LOGE("can not find %s", magic);
         return false;
     }
-    strncpy((char*)(this->m_mmap_program+index), (char*)relo_table, len);
+
+    strncpy((char*)(this->m_mmap_program + this->relo_cur_index), (char*)relo_table, len);
+    this->relo_cur_index += len;
+
     return true;
 }
 
@@ -891,11 +901,16 @@ bool Elf_parser::set_dynsym(void* symbol_table, int len){
     unsigned char magic[4] = {0xe3, 0xbe, 0xef, 0xbe};
     int index = this->find_magic((const char*)magic, sizeof(magic));
     //LOGD("%s : %d", magic, index);
-    if(index < 0){
+    if(index > 0){
+        this->dynsym_cur_index = index;
+    }
+    if(this->dynsym_cur_index <= 0){
         LOGE("can not find %s", magic);
         return false;
     }
-    strncpy((char*)(this->m_mmap_program+index), (char*)symbol_table, len);
+
+    strncpy((char*)(this->m_mmap_program + this->dynsym_cur_index), (char*)symbol_table, len);
+    this->dynsym_cur_index += len;
     return true;
 }
 
@@ -903,10 +918,16 @@ bool Elf_parser::set_strtab(void* symbol_name, int len){
     unsigned char magic[4] = {0xe4, 0xbe, 0xef, 0xbe};
     int index = this->find_magic((const char*)magic, sizeof(magic));
     //LOGD("%s : %d", magic, index);
-    if(index < 0){
+    if(index > 0){
+        this->strtab_cur_index = index;
+    }
+    if(this->strtab_cur_index <= 0){
         LOGE("can not find %s", magic);
         return false;
     }
-    strncpy((char*)(this->m_mmap_program+index), (char*)symbol_name, len);
+
+    strncpy((char*)(this->m_mmap_program + this->strtab_cur_index), (char*)symbol_name, len);
+    this->strtab_cur_index += len;
+
     return true;
 }

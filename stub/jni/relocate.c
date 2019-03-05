@@ -1,35 +1,36 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <elf.h>
-
+#include "log.h"
 #include "elf_h.h"
 
-#define LOGTAG "hidesymbol"
-
-#ifndef ANDROID_LOG_INFO
-    #define ANDROID_LOG_INFO 4
-    #define ANDROID_LOG_ERROR 6
+#ifdef M_ARM64  //64bit
+    #define log_name  "__android_log_print"
+    #define log_path  "/system/lib64/liblog.so"
+    #define linker_path  "/system/bin/linker64"
+    #define dlopen_name  "__dl_dlopen"
+    #define dlsym_name  "__dl_dlsym"
+    #define mprotect_name  "mprotect"
+    #define libc_path  "/system/lib64/libc.so"
+#else //32bit
+    #define log_name  "__android_log_print"
+    #define log_path  "/system/lib/liblog.so"
+    #define linker_path  "/system/bin/linker"
+    #define dlopen_name  "__dl_dlopen"
+    #define dlsym_name  "__dl_dlsym"
+    #define mprotect_name  "mprotect"
+    #define libc_path  "/system/lib/libc.so"
 #endif
-
-#define LOGD(fmt, ...) wi_log(ANDROID_LOG_INFO, LOGTAG, fmt, ##__VA_ARGS__)
-#define LOGE(fmt, ...) wi_log(ANDROID_LOG_ERROR, LOGTAG, fmt, ##__VA_ARGS__)
-
-#define STT_GNU_IFUNC 10
 
 extern void* get_function(const char* lib_path, int lib_len, const char* fun_name, int name_len);
 
 void link_image(Elf_Ehdr* ehdr);
 unsigned long wi_strlen(const char* str);
-//static char relo_data[100]={'m','a','g','i','c','b','e','a','a'};
-//static char dynsym_data[100]={'m','a','g','i','c','b','e','a','b'};
-//static char strtab_data[100]={'m','a','g','i','c','b','e','a','c'};
+
 typedef void* (*p_dlopen)(const char*, int);
 typedef void* (*p_dlsym)(void*, const char*);
 typedef void* (*p_mprotect)(void *addr, size_t len, int prot);
 typedef void* (*p_log)(int index, const char* tag, const char* format, ...);
-
-//static char offset_to_init_data[4]={0xbe, 0xef, 0xbe, 0xe0};
-//static char offset_data[4]={0xbe, 0xef, 0xbe, 0xe1};
 
 void* get_base_addr(){
     unsigned long base_addr = 0;
@@ -72,21 +73,9 @@ void on_start(){
 
     void* p_ehdr = NULL;
     
-    //void* (*p_read_elf) = get_base_addr();
-
     Elf_Ehdr* ehdr = (Elf_Ehdr*)get_base_addr();
 
-    const char* log_name = "__android_log_print";
-    const char* log_path = "/system/lib64/liblog.so";
     p_log wi_log= get_function(log_path, wi_strlen(log_path), log_name, wi_strlen(log_name));
-
-    LOGD("plog...");
-
-    
-    //LOGD("p_dlopen addr :%p, dlopen addr :%p", p_dlopen, dlopen);
-    //LOGD("p_dlsym addr :%p, dlsym addr :%p", p_dlsym, dlsym);
-    //LOGD("p_mprotect addr :%p, mprotect addr :%p", p_mprotect, mprotect);
-    //LOGD("p_android_log addr :%p, mprotect addr :%p", p_mprotect, mprotect);
 
     LOGD("linking image...");
     
@@ -106,18 +95,6 @@ unsigned long wi_strlen(const char* str){
 
     return len;
 }
-/*
-int test_export(){
-    
-    read_elf();
-
-    char ch = getchar();
-
-    printf("getchar : %c\n", ch);
-
-    return 0;
-}
-*/
 
 void phdr_table_get_dynamic_section(Elf_Phdr* phdr_table, size_t phdr_count,
                                     unsigned long load_bias, Elf_Dyn** dynamic,
@@ -137,16 +114,12 @@ void phdr_table_get_dynamic_section(Elf_Phdr* phdr_table, size_t phdr_count,
 }
 
 Elf_Addr m_soinfo_do_lookup(const char* sym_name, const char* strtab_, unsigned long needed_libraries[], uint32_t needed_count){
-    const char* log_name = "__android_log_print";
-    const char* log_path = "/system/lib64/liblog.so";
+   
     p_log wi_log= get_function(log_path, wi_strlen(log_path), log_name, wi_strlen(log_name));
 
-    const char* linker64_path = "/system/bin/linker64";
-    const char* dlopen_name = "__dl_dlopen";    
-    p_dlopen wi_dlopen = get_function(linker64_path, wi_strlen(linker64_path), dlopen_name, wi_strlen(dlopen_name));
+    p_dlopen wi_dlopen = get_function(linker_path, wi_strlen(linker_path), dlopen_name, wi_strlen(dlopen_name));
     
-    const char* dlsym_name = "__dl_dlsym";
-    p_dlsym wi_dlsym = get_function(linker64_path, wi_strlen(linker64_path), dlsym_name, wi_strlen(dlsym_name));
+    p_dlsym wi_dlsym = get_function(linker_path, wi_strlen(linker_path), dlsym_name, wi_strlen(dlsym_name));
 
     int i = 0;
     void* sym_addr = NULL;
@@ -179,7 +152,7 @@ Elf_Addr m_soinfo_do_lookup(const char* sym_name, const char* strtab_, unsigned 
         LOGE("can not find symbol:%s", sym_name);
         return 0;
     }
-    //LOGD("[%s] addr:%p\n", sym_name, sym_addr);
+
     return (Elf_Addr)sym_addr;
 }
 
@@ -198,12 +171,9 @@ Elf_Sym* symtab_,
 const char* strtab_,
 unsigned long needed_libraries[], uint32_t needed_count)
 {
-    const char* log_name = "__android_log_print";
-    const char* log_path = "/system/lib64/liblog.so";
-    p_log wi_log= get_function(log_path, wi_strlen(log_path), log_name, wi_strlen(log_name));
+    
+    p_log wi_log = get_function(log_path, wi_strlen(log_path), log_name, wi_strlen(log_name));
 
-    const char* mprotect_name = "mprotect";
-    const char* libc_path = "/system/lib64/libc.so";
     p_mprotect wi_mprotect = get_function(libc_path, wi_strlen(libc_path), mprotect_name, wi_strlen(mprotect_name));
 
     Elf_Rela* rela = NULL;
@@ -212,8 +182,8 @@ unsigned long needed_libraries[], uint32_t needed_count)
     
     for(i=0; i<rela_count_; i++){
         rela = &rela_[i];
-        Elf_Xword sym_index = ELF_R_SYM(rela->r_info);
-        
+        //Elf_Xword sym_index = ELF_R_SYM(rela->r_info);
+        Elf_Xword sym_index = rela->r_info;
         const char* sym_name = strtab_ + symtab_[sym_index].st_name;
         const Elf_Sym* symbol = NULL;
         unsigned long symbol_bias = 0;
@@ -242,8 +212,7 @@ unsigned long needed_libraries[], uint32_t needed_count)
 
 
 void link_image(Elf_Ehdr* ehdr){
-    const char* log_name = "__android_log_print";
-    const char* log_path = "/system/lib64/liblog.so";
+    
     p_log wi_log= get_function(log_path, wi_strlen(log_path), log_name, wi_strlen(log_name));
 
     Elf_Phdr* phdr = (Elf_Phdr*)((uint8_t*)ehdr + ehdr->e_phoff);
@@ -253,11 +222,7 @@ void link_image(Elf_Ehdr* ehdr){
     Elf_Word dynamic_flags = 0;
     LOGD("load_bias : %lx", load_bias);
     phdr_table_get_dynamic_section(phdr, phnum, load_bias, &dynamic, &dynamic_flags);
-    size_t rela_count_ = 0;
-    size_t plt_rela_count_ = 0;
-    Elf_Rela* rela_ = NULL;
-    Elf_Rela* plt_rela_ = NULL;
-    Elf_Sym* symtab_ = NULL;
+    
     const char* strtab_;
     Elf_Dyn* dyn = NULL;
     uint32_t needed_count = 0;
@@ -265,27 +230,9 @@ void link_image(Elf_Ehdr* ehdr){
 
     for(dyn = dynamic; dyn->d_tag != DT_NULL; dyn++){
         switch(dyn->d_tag){
-            case DT_RELA:
-                rela_ = (Elf_Rela*)(load_bias + (dyn->d_un.d_ptr));  // + load_bias  ????
-                break; 
-            case DT_RELASZ:
-                //LOGD("relasz...");
-                rela_count_ =  (Elf_Word)dyn->d_un.d_val / sizeof(Elf_Rela);
-                //LOGD("relasz : %ld", rel_count_);
-                break;
-            case DT_SYMTAB:
-                //LOGD("symtab...");
-                symtab_ = (Elf_Sym*)(load_bias + (Elf_Addr)(dyn->d_un.d_ptr));  // + load_bias   ???
-                break;
             case DT_STRTAB:
                 //LOGD("strtab...");
                 strtab_ = (const char*)(load_bias + (Elf_Addr)dyn->d_un.d_ptr);  // + load_bias   ???
-                break;
-            case DT_JMPREL:
-                plt_rela_ = (Elf_Rela*)(load_bias + (Elf_Addr)dyn->d_un.d_ptr);
-                break;
-            case DT_PLTRELSZ:
-                plt_rela_count_ = (Elf_Word)dyn->d_un.d_val / sizeof(Elf_Rela);
                 break;
             case DT_NEEDED:
                 if(needed_count >= 20){
@@ -293,7 +240,6 @@ void link_image(Elf_Ehdr* ehdr){
                     return;
                 }
                 needed_libraries[needed_count] = (Elf_Word)dyn->d_un.d_val;
-                //LOGD("d_val : %lx", needed_libraries[needed_count]);
                 needed_count++;
                 break;
             default:
@@ -305,13 +251,10 @@ void link_image(Elf_Ehdr* ehdr){
         needed_libraries[i] = (unsigned long)(needed_libraries[i] + strtab_);
 
     }
-    //char relo_data[100]={'m','a','g','i','c','b','e','a','a'};
-    void* relo_data = NULL;
-    //char dynsym_data[100]={'m','a','g','i','c','b','e','a','b'};
-    void* dynsym_data = NULL;
-    //char strtab_data[100]={'m','a','g','i','c','b','e','a','c'};
-    void* strtab_data = NULL;
 
+    void* relo_data = NULL;
+    void* dynsym_data = NULL;
+    void* strtab_data = NULL;
 #ifdef M_ARM64
 	asm (
         "adr %0, relodata\n"
