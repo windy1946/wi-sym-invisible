@@ -7,57 +7,41 @@
 
 // extern int test_export();
 
-#define LIB_CACULATE_PATH "/data/local/tmp/libtest.so"
+#define LIB_PATH "/data/local/tmp/libtest.so"
+#define TEST_FUN "test_export"
 
 typedef void* (*p_test)();
 
 int main(){
 
-    printf("[+]loading %s\n", LIB_CACULATE_PATH);
-    
+    printf("[+]begining to dlopen %s\n", LIB_PATH);
+    printf("[+]press any key to continue...");
     char stop = getchar();
 
     void *handle = NULL;
-    handle = dlopen("/system/lib64/liblog.so", 2);
-    if(handle == NULL){
-        printf("handle is null\n");
-    }else{
-        printf("find liblog.so\n");
-    }
-    void* sym = dlsym(handle, "getchar");
-    void* (*p_getchar) = getchar;
 
-    printf("get char addr=====:%p\n", p_getchar);
-    if(sym == NULL){
-        printf("is null\n");
-    }else{
-        printf("find\n");
-        printf("getchar addr : %p\n", sym);
-    }
-    
-    dlclose(handle);
-
-    handle = dlopen(LIB_CACULATE_PATH, RTLD_NOW);
-    //void* (*p_dlopen)(const char*, int) = dlopen;
-    //printf("dlopen addr:%p\n", p_dlopen);
+    handle = dlopen(LIB_PATH, RTLD_NOW);
     if(handle == NULL){
         printf("dlopen error...\n");
         return -1;
     }
-    printf("[+]dlopen ok");
-    stop = getchar();
+    printf("[+]dlopen %s ok\n", LIB_PATH);
 
-    p_test test_fun = dlsym(handle, "test_export");
+    printf("[+]begining to dlsym %s\n", TEST_FUN);
+    printf("[+]press any key to continue...");
+
+    p_test test_fun = dlsym(handle, TEST_FUN);
     if(test_fun == NULL){
         printf("dlsym error...\n");
         return -1;
-    }else{
-        printf("dlsym test_export() ok, addr:%p \n", test_fun);
     }
+    
+    printf("[+]dlsym %s ok\n", TEST_FUN);
 
+    printf("[+]running %s\n", TEST_FUN);
     test_fun();
+    printf("[+]finish %s\n", TEST_FUN);
 
-    printf("dlclose()\n");
     dlclose(handle);
 
     printf("exit\n");

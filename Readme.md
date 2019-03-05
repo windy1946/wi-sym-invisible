@@ -3,6 +3,7 @@
 ## 项目结构组成
 1. elf-tool，用于对so文件做修改，包括符号抹去，数据修改（将被抹去的符号传递给stub）。
 2. stub，存放shellcode，用于对so中被抹去的符号做重定位。
+3. test，测试样例，使用elf-tool对test中so做修改。通过执行`./build.sh`完成测试。
 
 ## elf-tool
 - 将需要隐藏的符号的符号表(`Elf64_Sym`)，重定位表(`Elf64_Rela`)，符号名称(`symbol name`)这三个数据结构类型传递给stub。
